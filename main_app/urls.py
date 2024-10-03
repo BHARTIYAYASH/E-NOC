@@ -93,23 +93,23 @@ urlpatterns = [
          name='staff_view_profile'),
     path("staff/attendance/take/", staff_views.staff_take_attendance,
          name='staff_take_attendance'),
-    path("staff/attendance/update/", staff_views.staff_update_attendance,
-         name='staff_update_attendance'),
-    path("staff/get_students/", staff_views.get_students, name='get_students'),
-    path("staff/attendance/fetch/", staff_views.get_student_attendance,
-         name='get_student_attendance'),
     path("staff/attendance/save/",
          staff_views.save_attendance, name='save_attendance'),
     path("staff/attendance/update/",
          staff_views.update_attendance, name='update_attendance'),
+    path("staff/get_students/", staff_views.get_students, name='get_students'),
+    path("staff/attendance/fetch/", staff_views.get_student_attendance,
+         name='get_student_attendance'),
     path("staff/fcmtoken/", staff_views.staff_fcmtoken, name='staff_fcmtoken'),
     path("staff/view/notification/", staff_views.staff_view_notification,
          name="staff_view_notification"),
-    path("staff/result/add/", staff_views.staff_add_result, name='staff_add_result'),
     path("staff/result/edit/", EditResultView.as_view(),
          name='edit_student_result'),
     path('staff/result/fetch/', staff_views.fetch_student_result,
          name='fetch_student_result'),
+    path('staff/sign_noc/', staff_views.sign_noc, name='sign_noc'),
+    path('staff/get_student_noc/', staff_views.get_student_noc, name='get_student_noc'),
+
 
 
 
@@ -127,7 +127,7 @@ urlpatterns = [
          name='student_fcmtoken'),
     path("student/view/notification/", student_views.student_view_notification,
          name="student_view_notification"),
-    path('student/view/result/', student_views.student_view_result,
-         name='student_view_result'),
-
+    path('student/check_noc/', student_views.student_check_noc, name="student_check_noc"),
+    path('student/check_noc_status/', student_views.check_noc_status, name='check_noc_status'),
+    
 ]

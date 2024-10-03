@@ -16,38 +16,41 @@ from .models import *
 
 def student_home(request):
     student = get_object_or_404(Student, admin=request.user)
-    total_subject = Subject.objects.filter(course=student.course).count()
-    total_attendance = AttendanceReport.objects.filter(student=student).count()
-    total_present = AttendanceReport.objects.filter(student=student, status=True).count()
-    if total_attendance == 0:  # Don't divide. DivisionByZero
-        percent_absent = percent_present = 0
-    else:
-        percent_present = math.floor((total_present/total_attendance) * 100)
-        percent_absent = math.ceil(100 - percent_present)
-    subject_name = []
+    subjects = Subject.objects.filter(course=student.course)
+    
+    subject_attendance = []
     data_present = []
     data_absent = []
-    subjects = Subject.objects.filter(course=student.course)
+    data_name = []
+    
     for subject in subjects:
-        attendance = Attendance.objects.filter(subject=subject)
-        present_count = AttendanceReport.objects.filter(
-            attendance__in=attendance, status=True, student=student).count()
-        absent_count = AttendanceReport.objects.filter(
-            attendance__in=attendance, status=False, student=student).count()
-        subject_name.append(subject.name)
-        data_present.append(present_count)
-        data_absent.append(absent_count)
+        attendance = AttendanceReport.objects.filter(student=student, attendance__subject=subject)
+        total_present = attendance.filter(status=True).count()
+        total_absent = attendance.filter(status=False).count()
+        total = total_present + total_absent
+        
+        if total > 0:
+            percent_present = round((total_present / total) * 100, 2)
+        else:
+            percent_present = 0
+        
+        subject_attendance.append({
+            'subject': subject.name,
+            'percent_present': percent_present,
+        })
+        
+        data_name.append(subject.name)
+        data_present.append(total_present)
+        data_absent.append(total_absent)
+    
     context = {
-        'total_attendance': total_attendance,
-        'percent_present': percent_present,
-        'percent_absent': percent_absent,
-        'total_subject': total_subject,
-        'subjects': subjects,
+        'page_title': 'Student Homepage',
+        'subject_attendance': subject_attendance,
+        'data_name': json.dumps(data_name),
         'data_present': data_present,
         'data_absent': data_absent,
-        'data_name': subject_name,
-        'page_title': 'Student Homepage'
-
+        'percent_present': round(sum(data_present) / (sum(data_present) + sum(data_absent)) * 100, 2),
+        'percent_absent': round(sum(data_absent) / (sum(data_present) + sum(data_absent)) * 100, 2),
     }
     return render(request, 'student_template/home_content.html', context)
 
@@ -84,6 +87,45 @@ def student_view_attendance(request):
             return JsonResponse(json.dumps(json_data), safe=False)
         except Exception as e:
             return None
+        
+def student_check_noc(request):
+    student = get_object_or_404(Student, admin=request.user)
+    results = []
+    
+    subjects = Subject.objects.filter(course=student.course)
+    for subject in subjects:
+        attendance = AttendanceReport.objects.filter(student=student, attendance__subject=subject)
+        total_classes = attendance.count()
+        present_classes = attendance.filter(status=True).count()
+        if total_classes > 0:
+            attendance_percent = (present_classes / total_classes) * 100
+        else:
+            attendance_percent = 0
+        
+        results.append({
+            'id': subject.id,
+            'subject': subject.name,
+            'staff': f"{subject.staff.admin.first_name} {subject.staff.admin.last_name}",
+            'attendance': f"{attendance_percent:.2f}%",
+            'submission': False,  # Default value, you'll need to implement a way to track submissions
+            'signature_of_staff': ''  # You may want to implement this feature later
+        })
+    
+    context = {
+        'results': results,
+        'page_title': 'Check NOC'
+    }
+    return render(request, "student_template/student_view_noc.html", context)
+
+
+def check_noc_status(request):
+    student = get_object_or_404(Student, admin=request.user)
+    nocs = NOC.objects.filter(student=student)
+    context = {
+        'nocs': nocs,
+        'page_title': 'Check NOC Status'
+    }
+    return render(request, 'student_template/check_noc_status.html', context)
 
 
 def student_apply_leave(request):
@@ -197,11 +239,11 @@ def student_view_notification(request):
     return render(request, "student_template/student_view_notification.html", context)
 
 
-def student_view_result(request):
+def student_view_noc(request):
     student = get_object_or_404(Student, admin=request.user)
-    results = StudentResult.objects.filter(student=student)
+    nocs = NOC.objects.filter(student=student)
     context = {
-        'results': results,
-        'page_title': "View Results"
+        'results': nocs,
+        'page_title': 'View NOC Status'
     }
-    return render(request, "student_template/student_view_result.html", context)
+    return render(request, "student_template/student_view_noc.html", context)

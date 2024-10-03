@@ -1,4 +1,5 @@
 import json
+import logging  # {{ edit_1 }}
 
 from django.contrib import messages
 from django.core.files.storage import FileSystemStorage
@@ -6,10 +7,13 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import (HttpResponseRedirect, get_object_or_404,redirect, render)
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
+from django.template.loader import render_to_string
 
 from .forms import *
 from .models import *
+# from .models import NOC, Student, Staff
 
+logger = logging.getLogger(__name__)  # {{ edit_2 }}
 
 def staff_home(request):
     staff = get_object_or_404(Staff, admin=request.user)
@@ -74,33 +78,39 @@ def get_students(request):
 
 @csrf_exempt
 def save_attendance(request):
-    student_data = request.POST.get('student_ids')
-    date = request.POST.get('date')
-    subject_id = request.POST.get('subject')
-    session_id = request.POST.get('session')
-    students = json.loads(student_data)
+    if request.method != 'POST':
+        return HttpResponse("Method Not Allowed")
+    
     try:
-        session = get_object_or_404(Session, id=session_id)
+        subject_id = request.POST.get('subject')
+        session_id = request.POST.get('session')
+        attendance_date = request.POST.get('attendance_date')
+        student_ids = request.POST.getlist('student_ids[]')
+        
+        logger.info(f"Saving attendance: subject={subject_id}, session={session_id}, date={attendance_date}, students={student_ids}")
+        
         subject = get_object_or_404(Subject, id=subject_id)
-
-        # Check if an attendance object already exists for the given date and session
-        attendance, created = Attendance.objects.get_or_create(session=session, subject=subject, date=date)
-
-        for student_dict in students:
-            student = get_object_or_404(Student, id=student_dict.get('id'))
-
-            # Check if an attendance report already exists for the student and the attendance object
-            attendance_report, report_created = AttendanceReport.objects.get_or_create(student=student, attendance=attendance)
-
-            # Update the status only if the attendance report was newly created
-            if report_created:
-                attendance_report.status = student_dict.get('status')
-                attendance_report.save()
-
+        session = get_object_or_404(Session, id=session_id)
+        
+        attendance = Attendance.objects.create(
+            subject=subject,
+            attendance_date=attendance_date,
+            session=session
+        )
+        
+        for student_id in student_ids:
+            student = get_object_or_404(Student, id=student_id)
+            attendance_report = AttendanceReport.objects.create(
+                student=student,
+                attendance=attendance,
+                status=True
+            )
+        
+        logger.info("Attendance saved successfully")
+        return HttpResponse("OK")
     except Exception as e:
-        return None
-
-    return HttpResponse("OK")
+        logger.error(f"Error saving attendance: {str(e)}", exc_info=True)
+        return HttpResponse(f"Error: {str(e)}", status=500)
 
 
 def staff_update_attendance(request):
@@ -151,6 +161,35 @@ def update_attendance(request):
         return None
 
     return HttpResponse("OK")
+
+from django.http import JsonResponse
+
+@csrf_exempt
+def sign_noc(request):
+    staff = get_object_or_404(Staff, admin=request.user)
+    
+    if request.method == 'POST':
+        noc_id = request.POST.get('noc_id')
+        noc = get_object_or_404(NOC, id=noc_id, staff=staff)
+        noc.signature_of_staff = True
+        noc.save()
+        return JsonResponse({"status": "success", "message": "NOC signed successfully"})
+    
+    students = Student.objects.all()
+    context = {
+        'students': students,
+        'page_title': 'Sign NOC'
+    }
+    return render(request, 'staff_template/sign_noc.html', context)
+
+
+def get_student_noc(request):
+    student_id = request.GET.get('student_id')
+    staff = get_object_or_404(Staff, admin=request.user)
+    nocs = NOC.objects.filter(student_id=student_id, staff=staff)
+    
+    html = render_to_string('staff_template/noc_table_rows.html', {'nocs': nocs})
+    return JsonResponse({'html': html})
 
 
 def staff_apply_leave(request):
@@ -262,37 +301,37 @@ def staff_view_notification(request):
     return render(request, "staff_template/staff_view_notification.html", context)
 
 
-def staff_add_result(request):
-    staff = get_object_or_404(Staff, admin=request.user)
-    subjects = Subject.objects.filter(staff=staff)
-    sessions = Session.objects.all()
-    context = {
-        'page_title': 'Result Upload',
-        'subjects': subjects,
-        'sessions': sessions
-    }
-    if request.method == 'POST':
-        try:
-            student_id = request.POST.get('student_list')
-            subject_id = request.POST.get('subject')
-            test = request.POST.get('test')
-            exam = request.POST.get('exam')
-            student = get_object_or_404(Student, id=student_id)
-            subject = get_object_or_404(Subject, id=subject_id)
-            try:
-                data = StudentResult.objects.get(
-                    student=student, subject=subject)
-                data.exam = exam
-                data.test = test
-                data.save()
-                messages.success(request, "Scores Updated")
-            except:
-                result = StudentResult(student=student, subject=subject, test=test, exam=exam)
-                result.save()
-                messages.success(request, "Scores Saved")
-        except Exception as e:
-            messages.warning(request, "Error Occured While Processing Form")
-    return render(request, "staff_template/staff_add_result.html", context)
+# def staff_add_result(request):
+#     staff = get_object_or_404(Staff, admin=request.user)
+#     subjects = Subject.objects.filter(staff=staff)
+#     sessions = Session.objects.all()
+#     context = {
+#         'page_title': 'Result Upload',
+#         'subjects': subjects,
+#         'sessions': sessions
+#     }
+#     if request.method == 'POST':
+#         try:
+#             student_id = request.POST.get('student_list')
+#             subject_id = request.POST.get('subject')
+#             test = request.POST.get('test')
+#             exam = request.POST.get('exam')
+#             student = get_object_or_404(Student, id=student_id)
+#             subject = get_object_or_404(Subject, id=subject_id)
+#             try:
+#                 data = StudentResult.objects.get(
+#                     student=student, subject=subject)
+#                 data.exam = exam
+#                 data.test = test
+#                 data.save()
+#                 messages.success(request, "Scores Updated")
+#             except:
+#                 result = StudentResult(student=student, subject=subject, test=test, exam=exam)
+#                 result.save()
+#                 messages.success(request, "Scores Saved")
+#         except Exception as e:
+#             messages.warning(request, "Error Occured While Processing Form")
+#     return render(request, "staff_template/NOC.html", context)
 
 
 @csrf_exempt
@@ -310,3 +349,5 @@ def fetch_student_result(request):
         return HttpResponse(json.dumps(result_data))
     except Exception as e:
         return HttpResponse('False')
+
+

@@ -1,0 +1,52 @@
+{% extends 'main_app/base.html' %}
+{% load static %}
+{% block page_title %}{{page_title}}{% endblock page_title %}
+
+{% block content %}
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">{{page_title}}</h3>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Subject</th>
+                                    <th>Staff</th>
+                                    <th>Attendance</th>
+                                    <th>Submission</th>
+                                    <th>Signature of Staff</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for noc in results %}
+                                <tr>
+                                    <td>{{ noc.id }}</td>   
+                                    <td>{{ noc.subject }}</td>
+                                    <td>{{ noc.staff }}</td>
+                                    <td>{{ noc.attendance }}</td>   
+                                    <td>{{ noc.submission }}</td>
+                                    <td>{{ noc.signature_of_staff }}</td>   
+
+                                    <td>
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="submission_{{ forloop.counter }}" {% if noc.submission %}checked{% endif %}>
+                                            <label class="form-check-label" for="submission_{{ forloop.counter }}">Submitted</label>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock content %}
